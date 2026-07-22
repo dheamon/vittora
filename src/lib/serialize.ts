@@ -1,11 +1,10 @@
 import type { Client } from "@prisma/client";
-import type { ClientDTO, ClientType } from "./types";
+import type { ClientDTO } from "./types";
 
-/** Convert a Prisma Client record into the JSON-serializable DTO. */
 export function serializeClient(c: Client): ClientDTO {
   return {
     id: c.id,
-    type: c.type as ClientType,
+    type: c.type,
     name: c.name,
     pan: c.pan,
     password: c.password,

@@ -1,25 +1,20 @@
-// Vittora — CA practice ERP data model.
-//
-// Using SQLite for zero-config local development. To switch to PostgreSQL,
-// change `provider` to "postgresql" and update DATABASE_URL in .env, then run
-// `npx prisma migrate dev`.
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-/// A client of the CA practice — an individual taxpayer or a company/entity.
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+}
+
 model Client {
-  id String @id @default(cuid())
-  // "INDIVIDUAL" | "COMPANY". Stored as text because SQLite has no native
-  // enums; the app enforces the allowed values (see src/lib/validation.ts).
-  // When migrating to PostgreSQL you can promote this to a real Prisma enum.
-  type String @default("INDIVIDUAL")
+  id   String     @id @default(cuid())
+  type ClientType @default(INDIVIDUAL)
 
   // --- Basic details ---
   name    String

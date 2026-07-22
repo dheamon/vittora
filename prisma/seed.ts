@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ClientType } from "@prisma/client";
 import { generateAisPassword } from "../src/lib/ais";
-import type { ClientType } from "../src/lib/types";
 
 const prisma = new PrismaClient();
 
@@ -138,9 +137,9 @@ async function main() {
     });
     // Set the historical "updated" timestamp with a raw update so the
     // dashboard's "recently updated" ordering looks realistic.
-    await prisma.$executeRaw`UPDATE Client SET updatedAt = ${new Date(
+    await prisma.$executeRaw`UPDATE "Client" SET "updatedAt" = ${new Date(
       c.updatedAt,
-    )} WHERE id = ${created.id}`;
+    )} WHERE "id" = ${created.id}`;
   }
 
   const count = await prisma.client.count();

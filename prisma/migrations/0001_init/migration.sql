@@ -1,7 +1,10 @@
+-- CreateEnum
+CREATE TYPE "ClientType" AS ENUM ('INDIVIDUAL', 'COMPANY');
+
 -- CreateTable
 CREATE TABLE "Client" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "type" TEXT NOT NULL DEFAULT 'INDIVIDUAL',
+    "id" TEXT NOT NULL,
+    "type" "ClientType" NOT NULL DEFAULT 'INDIVIDUAL',
     "name" TEXT NOT NULL,
     "pan" TEXT NOT NULL,
     "password" TEXT,
@@ -15,8 +18,10 @@ CREATE TABLE "Client" (
     "userId" TEXT,
     "portalPassword" TEXT,
     "aisPassword" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Client_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
