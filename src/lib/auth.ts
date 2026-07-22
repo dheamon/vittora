@@ -1,21 +1,8 @@
-/**
- * Authentication layer.
- *
- * This is intentionally a thin, self-contained implementation so that a real
- * identity provider (NextAuth, Clerk, Auth0, a database + bcrypt, …) can drop
- * in later by replacing `authenticate()` and the session helpers below — the
- * rest of the app only depends on `getSessionUser()` and the two cookie
- * helpers.
- *
- * Sessions are stateless signed cookies (HMAC-SHA256) verified with the Web
- * Crypto API so the same code runs in both the Edge middleware and Node route
- * handlers.
- */
-
 export const SESSION_COOKIE = "vittora_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 export interface SessionUser {
+  id: string;
   username: string;
   name: string;
   role: string;
@@ -26,26 +13,26 @@ function getSecret(): string {
   return process.env.AUTH_SECRET || "dev-only-insecure-secret";
 }
 
-/**
- * The single swap-point for real authentication. Today it checks the
- * development credentials from the environment; replace the body with a
- * database lookup + password hash comparison to go live.
- */
 export async function authenticate(
   username: string,
   password: string,
 ): Promise<SessionUser | null> {
-  const devUser = process.env.DEV_AUTH_USERNAME || "admin";
-  const devPass = process.env.DEV_AUTH_PASSWORD || "admin123";
-  if (username === devUser && password === devPass) {
-    return {
-      username: devUser,
-      name: "Practice Admin",
-      role: "Admin",
-      firm: "Vittora & Co.",
-    };
-  }
-  return null;
+  const { prisma } = await import("./prisma");
+  const bcrypt = await import("bcryptjs");
+
+  const user = await prisma.user.findUnique({ where: { username } });
+  if (!user) return null;
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) return null;
+
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: user.role === "ADMIN" ? "Admin" : "User",
+    firm: "Vittora & Co.",
+  };
 }
 
 // --- base64url helpers (runtime-agnostic) ---------------------------------
@@ -81,7 +68,6 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-/** Create a signed session token for a user. */
 export async function createSessionToken(user: SessionUser): Promise<string> {
   const payload = {
     ...user,
@@ -92,7 +78,6 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
   return `${payloadB64}.${sig}`;
 }
 
-/** Verify a session token and return the user, or null if invalid/expired. */
 export async function verifySessionToken(
   token: string | undefined | null,
 ): Promise<SessionUser | null> {
@@ -105,6 +90,7 @@ export async function verifySessionToken(
     const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(payloadB64)));
     if (typeof payload.exp !== "number" || payload.exp < Date.now() / 1000) return null;
     return {
+      id: payload.id,
       username: payload.username,
       name: payload.name,
       role: payload.role,

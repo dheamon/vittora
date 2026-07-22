@@ -1,6 +1,5 @@
 export type ClientType = "INDIVIDUAL" | "COMPANY";
 
-/** Client shape as serialized over the API (dates as ISO strings). */
 export interface ClientDTO {
   id: string;
   type: ClientType;
@@ -17,6 +16,9 @@ export interface ClientDTO {
   userId: string | null;
   portalPassword: string | null;
   aisPassword: string | null;
+  createdById: string | null;
+  createdByName: string | null;
+  assignedUserIds: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -37,4 +39,16 @@ export interface ClientListResponse {
     companies: number;
     lastUpdated: { name: string; updatedAt: string } | null;
   };
+}
+
+export type UserRole = "ADMIN" | "USER";
+
+export interface UserDTO {
+  id: string;
+  username: string;
+  name: string;
+  role: UserRole;
+  clientCount: number;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -1,4 +1,5 @@
 import { PrismaClient, ClientType } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import { generateAisPassword } from "../src/lib/ais";
 
 const prisma = new PrismaClient();
@@ -110,10 +111,25 @@ const clients: SeedClient[] = [
 ];
 
 async function main() {
-  console.log("🌱 Seeding Vittora database…");
+  console.log("Seeding Vittora database…");
 
-  // Start clean so re-running the seed is idempotent.
+  await prisma.clientUser.deleteMany();
   await prisma.client.deleteMany();
+  await prisma.user.deleteMany();
+
+  const adminHash = await bcrypt.hash(
+    process.env.DEV_AUTH_PASSWORD || "admin123",
+    12,
+  );
+  const admin = await prisma.user.create({
+    data: {
+      username: process.env.DEV_AUTH_USERNAME || "admin",
+      passwordHash: adminHash,
+      name: "Practice Admin",
+      role: "ADMIN",
+    },
+  });
+  console.log(`  Created admin user: ${admin.username}`);
 
   for (const c of clients) {
     const created = await prisma.client.create({
@@ -132,23 +148,23 @@ async function main() {
         userId: c.userId,
         portalPassword: c.portalPassword,
         aisPassword: generateAisPassword(c.pan, c.dob),
+        createdById: admin.id,
         createdAt: new Date(c.createdAt),
       },
     });
-    // Set the historical "updated" timestamp with a raw update so the
-    // dashboard's "recently updated" ordering looks realistic.
     await prisma.$executeRaw`UPDATE "Client" SET "updatedAt" = ${new Date(
       c.updatedAt,
     )} WHERE "id" = ${created.id}`;
   }
 
   const count = await prisma.client.count();
-  console.log(`✅ Seeded ${count} clients.`);
+  console.log(`  Seeded ${count} clients.`);
+  console.log("Done.");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Seed failed:", e);
+    console.error("Seed failed:", e);
     process.exit(1);
   })
   .finally(async () => {

@@ -1,17 +1,65 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, User, Building2, FileText, Lock, Pencil, Trash2 } from "lucide-react";
-import type { ClientDTO } from "@/lib/types";
+import { ArrowLeft, User, Building2, FileText, Lock, Pencil, Trash2, Users } from "lucide-react";
+import type { ClientDTO, UserDTO } from "@/lib/types";
+import type { SessionUser } from "@/lib/auth";
 import { initials, avatarColor, formatDate, typeLabel } from "@/lib/ui";
 import { useClientModal } from "./ClientModalProvider";
 import { SecretInline } from "./SecretCell";
+import { useToast } from "./ToastProvider";
 
-export default function ClientDetail({ client }: { client: ClientDTO }) {
+export default function ClientDetail({
+  client,
+  currentUser,
+}: {
+  client: ClientDTO;
+  currentUser: SessionUser;
+}) {
   const router = useRouter();
   const { openEdit, confirmDelete } = useClientModal();
+  const { toast } = useToast();
   const [bg, fg] = avatarColor(client.id);
   const isCompany = client.type === "COMPANY";
+  const isAdmin = currentUser.role === "Admin";
+
+  const [allUsers, setAllUsers] = useState<UserDTO[]>([]);
+  const [assignedIds, setAssignedIds] = useState<Set<string>>(
+    new Set(client.assignedUserIds),
+  );
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/users")
+      .then((r) => r.json())
+      .then((data) => setAllUsers(data))
+      .catch(() => {});
+  }, [isAdmin]);
+
+  async function saveAssignments(ids: Set<string>) {
+    setSaving(true);
+    const res = await fetch(`/api/clients/${client.id}/assign`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userIds: Array.from(ids) }),
+    });
+    if (res.ok) {
+      toast("Assignments updated", "Client access has been updated");
+    }
+    setSaving(false);
+  }
+
+  function toggleUser(userId: string) {
+    const next = new Set(assignedIds);
+    if (next.has(userId)) next.delete(userId);
+    else next.add(userId);
+    setAssignedIds(next);
+    saveAssignments(next);
+  }
+
+  const nonAdminUsers = allUsers.filter((u) => u.role === "USER");
 
   return (
     <div className="view">
@@ -33,6 +81,11 @@ export default function ClientDetail({ client }: { client: ClientDTO }) {
             <span>·</span>
             <span>Updated {formatDate(client.updatedAt)}</span>
           </div>
+          {client.createdByName && (
+            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
+              Created by {client.createdByName}
+            </div>
+          )}
         </div>
         <div className="detail-actions">
           <button className="btn btn-ghost" onClick={() => openEdit(client)}>
@@ -50,7 +103,6 @@ export default function ClientDetail({ client }: { client: ClientDTO }) {
       </div>
 
       <div className="detail-grid">
-        {/* Personal details */}
         <div className="panel">
           <div className="panel-head">
             {isCompany ? <Building2 /> : <User />}
@@ -76,7 +128,6 @@ export default function ClientDetail({ client }: { client: ClientDTO }) {
           </div>
         </div>
 
-        {/* Tax + portal credentials */}
         <div className="panel">
           <div className="panel-head">
             <FileText />
@@ -125,6 +176,49 @@ export default function ClientDetail({ client }: { client: ClientDTO }) {
             </div>
           </div>
         </div>
+
+        {isAdmin && nonAdminUsers.length > 0 && (
+          <div className="panel">
+            <div className="panel-head">
+              <Users />
+              <h3>Assigned users</h3>
+              {saving && (
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>Saving…</span>
+              )}
+            </div>
+            <div className="panel-body">
+              <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>
+                Toggle users who should have access to this client
+              </div>
+              {nonAdminUsers.map((u) => (
+                <label
+                  key={u.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 0",
+                    borderBottom: "1px solid var(--line)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={assignedIds.has(u.id)}
+                    onChange={() => toggleUser(u.id)}
+                    style={{ width: 16, height: 16 }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{u.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      @{u.username}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

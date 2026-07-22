@@ -11,7 +11,6 @@ interface RowError {
   errors: string[];
 }
 
-/** POST /api/clients/import — bulk import from an uploaded .xlsx/.csv file. */
 export async function POST(req: Request) {
   const auth = await requireUser();
   if (auth instanceof NextResponse) return auth;
@@ -37,7 +36,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "The file has no data rows" }, { status: 400 });
   }
 
-  // Existing PANs to detect duplicates against the database.
   const existing = new Set(
     (await prisma.client.findMany({ select: { pan: true } })).map((c) => c.pan),
   );
@@ -66,7 +64,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Insert the valid rows.
   let imported = 0;
   for (const row of valid) {
     await prisma.client.create({
@@ -85,6 +82,7 @@ export async function POST(req: Request) {
         userId: row.userId,
         portalPassword: row.portalPassword,
         aisPassword: generateAisPassword(row.pan, row.dob),
+        createdById: auth.id,
       },
     });
     imported += 1;

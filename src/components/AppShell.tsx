@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   Download,
   Upload,
   ClipboardCheck,
@@ -56,12 +57,10 @@ export default function AppShell({
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
-  // Global search drives the clients list.
   const [searchValue, setSearchValue] = useState(searchParams.get("search") ?? "");
   const debounce = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
-    // Keep the box in sync when navigating away from /clients.
     if (!pathname.startsWith("/clients")) setSearchValue(searchParams.get("search") ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
@@ -81,6 +80,8 @@ export default function AppShell({
     router.push("/login");
     router.refresh();
   }
+
+  const isAdmin = user.role === "Admin";
 
   const nav = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -118,6 +119,15 @@ export default function AppShell({
         <Link href="/export" className={`nav-item ${isActive("/export") ? "active" : ""}`}>
           <Download /> Export
         </Link>
+
+        {isAdmin && (
+          <>
+            <div className="nav-label">Admin</div>
+            <Link href="/users" className={`nav-item ${isActive("/users") ? "active" : ""}`}>
+              <UserCog /> Users
+            </Link>
+          </>
+        )}
 
         <div className="nav-label">Coming soon</div>
         <button
@@ -185,6 +195,11 @@ export default function AppShell({
         <button onClick={openAdd}>
           <Plus /> Add
         </button>
+        {isAdmin && (
+          <Link href="/users" className={isActive("/users") ? "active" : ""}>
+            <UserCog /> Users
+          </Link>
+        )}
         <Link href="/import" className={isActive("/import") ? "active" : ""}>
           <Upload /> Import
         </Link>

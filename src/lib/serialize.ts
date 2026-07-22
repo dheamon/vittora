@@ -1,7 +1,12 @@
-import type { Client } from "@prisma/client";
+import type { Client, User, ClientUser } from "@prisma/client";
 import type { ClientDTO } from "./types";
 
-export function serializeClient(c: Client): ClientDTO {
+type ClientWithRelations = Client & {
+  createdBy?: User | null;
+  assignedUsers?: (ClientUser & { user?: User })[];
+};
+
+export function serializeClient(c: ClientWithRelations): ClientDTO {
   return {
     id: c.id,
     type: c.type,
@@ -18,6 +23,9 @@ export function serializeClient(c: Client): ClientDTO {
     userId: c.userId,
     portalPassword: c.portalPassword,
     aisPassword: c.aisPassword,
+    createdById: c.createdById,
+    createdByName: c.createdBy?.name ?? null,
+    assignedUserIds: c.assignedUsers?.map((a) => a.userId) ?? [],
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };

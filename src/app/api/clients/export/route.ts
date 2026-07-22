@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/api";
+import { requireUser, clientAccessFilter } from "@/lib/api";
 import { serializeClient } from "@/lib/serialize";
 import { buildExportBuffer } from "@/lib/spreadsheet";
 
-/** GET /api/clients/export?format=xlsx|csv&scope=full|basic */
 export async function GET(req: Request) {
   const auth = await requireUser();
   if (auth instanceof NextResponse) return auth;
@@ -14,7 +13,11 @@ export async function GET(req: Request) {
   const scope = searchParams.get("scope") === "basic" ? "basic" : "full";
 
   const clients = (
-    await prisma.client.findMany({ orderBy: { name: "asc" } })
+    await prisma.client.findMany({
+      where: clientAccessFilter(auth),
+      include: { createdBy: true, assignedUsers: true },
+      orderBy: { name: "asc" },
+    })
   ).map(serializeClient);
 
   const buffer = buildExportBuffer(clients, format, scope);

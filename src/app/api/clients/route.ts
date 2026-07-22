@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/api";
+import { requireUser, clientAccessFilter } from "@/lib/api";
 import { serializeClient } from "@/lib/serialize";
 import { clientInputSchema } from "@/lib/validation";
 import { generateAisPassword } from "@/lib/ais";
@@ -9,7 +9,11 @@ import type { ClientListResponse, SortKey } from "@/lib/types";
 
 const SORT_KEYS: SortKey[] = ["name", "pan", "createdAt", "updatedAt"];
 
-/** GET /api/clients — searchable, filterable, sortable, paginated list + stats. */
+const clientInclude = {
+  createdBy: true,
+  assignedUsers: true,
+} as const;
+
 export async function GET(req: Request) {
   const auth = await requireUser();
   if (auth instanceof NextResponse) return auth;
@@ -26,18 +30,23 @@ export async function GET(req: Request) {
     Math.max(1, parseInt(searchParams.get("perPage") || "10", 10) || 10),
   );
 
-  const where: Prisma.ClientWhereInput = {};
+  const accessFilter = clientAccessFilter(auth);
+  const where: Prisma.ClientWhereInput = { ...accessFilter };
+
   if (filter === "individual") where.type = "INDIVIDUAL";
   else if (filter === "company") where.type = "COMPANY";
 
   if (search) {
-    // Search by name, PAN, phone, GST and email.
-    where.OR = [
-      { name: { contains: search } },
-      { pan: { contains: search } },
-      { phone: { contains: search } },
-      { gstNumber: { contains: search } },
-      { email: { contains: search } },
+    where.AND = [
+      {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { pan: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search } },
+          { gstNumber: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ],
+      },
     ];
   }
 
@@ -45,11 +54,13 @@ export async function GET(req: Request) {
     prisma.client.count({ where }),
     prisma.client.findMany({
       where,
+      include: clientInclude,
       orderBy: { [sortKey]: sortDir },
       skip: (page - 1) * perPage,
       take: perPage,
     }),
     prisma.client.findMany({
+      where: accessFilter,
       select: { type: true, name: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
@@ -77,7 +88,6 @@ export async function GET(req: Request) {
   return NextResponse.json(body);
 }
 
-/** POST /api/clients — create a client. */
 export async function POST(req: Request) {
   const auth = await requireUser();
   if (auth instanceof NextResponse) return auth;
@@ -96,7 +106,9 @@ export async function POST(req: Request) {
       data: {
         ...input,
         aisPassword: generateAisPassword(input.pan, input.dob),
+        createdById: auth.id,
       },
+      include: clientInclude,
     });
     return NextResponse.json(serializeClient(created), { status: 201 });
   } catch (e) {

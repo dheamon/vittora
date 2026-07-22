@@ -7,40 +7,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
 enum ClientType {
   INDIVIDUAL
   COMPANY
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdClients  Client[]       @relation("CreatedBy")
+  assignedClients ClientUser[]
+}
+
+model ClientUser {
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+
+  @@id([clientId, userId])
 }
 
 model Client {
   id   String     @id @default(cuid())
   type ClientType @default(INDIVIDUAL)
 
-  // --- Basic details ---
   name    String
-  pan     String  @unique // Permanent Account Number — always unique.
-  password String? // The client's income-tax portal login password.
+  pan     String  @unique
+  password String?
   aadhaar String?
-  dob     String? // Date of birth (individuals), stored as DD/MM/YYYY.
-  dof     String? // Date of formation (companies), stored as DD/MM/YYYY.
+  dob     String?
+  dof     String?
   phone   String?
   email   String?
   address String?
 
-  // --- Tax & portal ---
   gstNumber      String?
-  userId         String? // Portal user ID.
+  userId         String?
   portalPassword String?
 
-  // --- Auto-generated ---
-  // AIS password = PAN + DOB (digits only). Regenerated whenever PAN/DOB change.
   aisPassword String?
+
+  createdBy   User?   @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById String?
+
+  assignedUsers ClientUser[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([name])
   @@index([type])
+  @@index([createdById])
   @@index([createdAt])
   @@index([updatedAt])
 }

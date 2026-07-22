@@ -8,9 +8,8 @@ import { useToast } from "@/components/ToastProvider";
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  // Development credentials are auto-filled (see AUTH docs in README).
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +57,7 @@ export default function LoginPage() {
             id="u"
             type="text"
             value={username}
-            autoComplete="off"
+            autoComplete="username"
             onChange={(e) => setUsername(e.target.value)}
           />
         </div>
@@ -68,7 +67,7 @@ export default function LoginPage() {
             id="p"
             type="password"
             value={password}
-            autoComplete="off"
+            autoComplete="current-password"
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
@@ -87,12 +86,6 @@ export default function LoginPage() {
         </button>
 
         {error ? <div className="login-error">{error}</div> : null}
-
-        <div className="dev-note">
-          <span className="tag">Dev mode</span> &nbsp;Auto-filled credentials —{" "}
-          <b>admin</b> / <b>admin123</b>. The auth layer is stubbed so a real
-          provider can drop in later.
-        </div>
       </form>
     </div>
   );
