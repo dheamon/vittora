@@ -165,17 +165,64 @@ other code needs to change.
 
 ## ☁️ Deploying
 
-The app deploys to any Node host. **Vercel** is the smoothest path:
+Two ready-made paths. Neither can be run from inside this build session (no
+hosting credentials live here) — both are a few minutes of clicking on your
+end.
 
-1. Push this repo to GitHub.
-2. Import it in Vercel.
-3. Set env vars (`AUTH_SECRET`, `DATABASE_URL`) — use a hosted Postgres
-   (Vercel Postgres, Neon, Supabase) since Vercel's filesystem is read-only, then
-   switch the Prisma provider to `postgresql` as above.
-4. Set the build command to `npm run build` and deploy.
+### Option A — Vercel + Neon Postgres (recommended, free tier)
 
-For a container/VM you can keep SQLite: run `npm run build` then `npm start`
-behind a reverse proxy, with `prisma/dev.db` on a persistent volume.
+Vercel's filesystem is read-only/ephemeral, so SQLite won't persist there —
+swap in a free hosted Postgres first.
+
+1. **Create a database.** Sign up at [neon.tech](https://neon.tech) (or
+   Supabase / Vercel Postgres), create a project, and copy its connection
+   string (`postgresql://...`).
+2. **Switch the provider.** In `prisma/schema.prisma` change:
+   ```diff
+   datasource db {
+   -  provider = "sqlite"
+   +  provider = "postgresql"
+     url      = env("DATABASE_URL")
+   }
+   ```
+   (Optional: promote `type String` back to a real `enum ClientType` — Postgres
+   supports native enums, unlike SQLite.)
+3. **Push this repo to GitHub**, then [import it in Vercel](https://vercel.com/new).
+4. **Set environment variables** in the Vercel project settings:
+   - `DATABASE_URL` — your Neon connection string
+   - `AUTH_SECRET` — any random 32+ character string
+   - `DEV_AUTH_USERNAME` / `DEV_AUTH_PASSWORD` — keep or change the demo login
+5. **Deploy.** Vercel runs `npm run build` (which runs `prisma generate`)
+   automatically.
+6. **Apply the schema** to your new database once, from your machine:
+   ```bash
+   DATABASE_URL="<your neon connection string>" npx prisma migrate deploy
+   DATABASE_URL="<your neon connection string>" npx tsx prisma/seed.ts   # optional sample data
+   ```
+
+You'll get a `https://<project>.vercel.app` URL.
+
+### Option B — Docker, anywhere (Railway, Render, Fly.io, a VPS)
+
+No database migration needed — SQLite persists on a mounted volume. A
+`Dockerfile`, `docker-compose.yml`, and `docker-entrypoint.sh` are already in
+the repo (multi-stage build on `node:20-slim`, Next.js `output: "standalone"`,
+runs `prisma migrate deploy` on every boot before starting the server).
+
+```bash
+# generate a random AUTH_SECRET first, e.g.: openssl rand -base64 32
+AUTH_SECRET="<paste a random secret>" docker compose up --build
+```
+
+Or point Railway/Render/Fly's "Deploy from Dockerfile" at this repo directly
+and set `AUTH_SECRET` (and `DATABASE_URL` if you'd rather use their managed
+Postgres than the SQLite volume) in their dashboard.
+
+> Verified in this session: the production build (`npm run build`, standalone
+> output) boots and correctly serves login, auth, and the dashboard — the
+> exact runtime path `docker-entrypoint.sh` executes. The `docker build` step
+> itself pulls `node:20-slim` from Docker Hub, which this sandbox's network
+> policy blocks — that pull will succeed normally on your machine or CI.
 
 ---
 

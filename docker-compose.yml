@@ -1,0 +1,18 @@
+# Quick self-host: `docker compose up --build`.
+# SQLite persists in the `data` volume, so it survives container restarts —
+# suitable for a VPS or Railway/Render's Docker deploy target.
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "file:/data/prod.db"
+      AUTH_SECRET: "${AUTH_SECRET:?set a random 32+ char secret}"
+      DEV_AUTH_USERNAME: "${DEV_AUTH_USERNAME:-admin}"
+      DEV_AUTH_PASSWORD: "${DEV_AUTH_PASSWORD:-admin123}"
+    volumes:
+      - data:/data
+
+volumes:
+  data:
