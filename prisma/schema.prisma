@@ -1,0 +1,51 @@
+// Vittora — CA practice ERP data model.
+//
+// Using SQLite for zero-config local development. To switch to PostgreSQL,
+// change `provider` to "postgresql" and update DATABASE_URL in .env, then run
+// `npx prisma migrate dev`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// A client of the CA practice — an individual taxpayer or a company/entity.
+model Client {
+  id String @id @default(cuid())
+  // "INDIVIDUAL" | "COMPANY". Stored as text because SQLite has no native
+  // enums; the app enforces the allowed values (see src/lib/validation.ts).
+  // When migrating to PostgreSQL you can promote this to a real Prisma enum.
+  type String @default("INDIVIDUAL")
+
+  // --- Basic details ---
+  name    String
+  pan     String  @unique // Permanent Account Number — always unique.
+  password String? // The client's income-tax portal login password.
+  aadhaar String?
+  dob     String? // Date of birth (individuals), stored as DD/MM/YYYY.
+  dof     String? // Date of formation (companies), stored as DD/MM/YYYY.
+  phone   String?
+  email   String?
+  address String?
+
+  // --- Tax & portal ---
+  gstNumber      String?
+  userId         String? // Portal user ID.
+  portalPassword String?
+
+  // --- Auto-generated ---
+  // AIS password = PAN + DOB (digits only). Regenerated whenever PAN/DOB change.
+  aisPassword String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([type])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
